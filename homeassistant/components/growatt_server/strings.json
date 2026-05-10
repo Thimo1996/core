@@ -104,6 +104,9 @@
       },
       "battery_discharge_soc_limit_on_grid": {
         "name": "Battery discharge SOC limit (on-grid)"
+      },
+      "pv_discharge_power_limit": {
+        "name": "PV discharge power limit"
       }
     },
     "sensor": {

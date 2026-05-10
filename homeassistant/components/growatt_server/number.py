@@ -29,6 +29,9 @@ class GrowattNumberEntityDescription(NumberEntityDescription):
 
     api_key: str
     write_key: str | None = None  # Parameter ID for writing (if different from api_key)
+    write_parameters: list[int] | None = (
+        None  # Additional parameters for writing (if needed)
+    )
 
 
 # Note that the Growatt V1 API uses different keys for reading and writing parameters.
@@ -80,6 +83,17 @@ MIN_NUMBER_TYPES: tuple[GrowattNumberEntityDescription, ...] = (
         translation_key="battery_discharge_soc_limit_on_grid",
         api_key="onGridDischargeStopSOC",  # Key returned by V1 API (on-grid)
         write_key="on_grid_discharge_stop_soc",  # Key used to write parameter
+        native_step=1,
+        native_min_value=0,
+        native_max_value=100,
+        native_unit_of_measurement=PERCENTAGE,
+    ),
+    GrowattNumberEntityDescription(
+        key="pv_discharge_power_limit",
+        translation_key="pv_discharge_power_limit",
+        api_key="activeRate",  # Key returned by V1 API (on-grid)
+        write_key="pv_active_p_rate",  # Key used to write parameter
+        write_parameters=[0, 0],  # write in percentage , write to non memory
         native_step=1,
         native_min_value=0,
         native_max_value=100,
@@ -145,7 +159,7 @@ class GrowattNumber(CoordinatorEntity[GrowattCoordinator], NumberEntity):
         parameter_id = (
             self.entity_description.write_key or self.entity_description.api_key
         )
-        int_value = int(value)
+        parameters = [int(value)] + (self.entity_description.write_parameters or [])
 
         try:
             # Use V1 API to write parameter
@@ -153,7 +167,7 @@ class GrowattNumber(CoordinatorEntity[GrowattCoordinator], NumberEntity):
                 self.coordinator.api.min_write_parameter,
                 self.coordinator.device_id,
                 parameter_id,
-                int_value,
+                parameters,
             )
         except GrowattV1ApiError as e:
             raise HomeAssistantError(
@@ -171,5 +185,5 @@ class GrowattNumber(CoordinatorEntity[GrowattCoordinator], NumberEntity):
 
         # Update the value in coordinator data to avoid triggering an immediate
         # refresh that would hit the API rate limit (5-minute polling interval)
-        self.coordinator.data[self.entity_description.api_key] = int_value
+        self.coordinator.data[self.entity_description.api_key] = int(value)
         self.async_write_ha_state()
